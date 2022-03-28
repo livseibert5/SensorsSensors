@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Page Title</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://www.gstatic.com/firebasejs/3.3.0/firebase.js"></script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.8/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.6.8/firebase-analytics.js";
+  //import { get } from "https://www.gstatic.com/firebasejs/8.0.1/firebase-database.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  /**PUT CREDENTIALS HERE**/
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  var ref = firebase.database().ref();
+  ref.on("value", function(snapshot){
+    while (document.getElementsByClassName('main')[0].firstChild) {
+      document.getElementsByClassName('main')[0].removeChild(document.getElementsByClassName('main')[0].firstChild);
+    }
+    var json = snapshot.val().data;
+    for (const d in json) {
+      var item = document.createElement("div");
+      var date_tag = document.createElement("p");
+      date_tag.appendChild(document.createTextNode("Date: " + json[d].date));
+      var moisture_tag = document.createElement("p");
+      moisture_tag.appendChild(document.createTextNode("Moisture: " + json[d].moisture));
+      var temp_tag = document.createElement("p");
+      temp_tag.appendChild(document.createTextNode("Temperature: " + json[d].temp));
+      var light_tag = document.createElement("p");
+      light_tag.appendChild(document.createTextNode("Sunlight: " + json[d].light));
+      date_tag.classList.add("data");
+      moisture_tag.classList.add("data");
+      temp_tag.classList.add("data");
+      light_tag.classList.add("data");
+      item.appendChild(date_tag);
+      item.appendChild(moisture_tag);
+      item.appendChild(temp_tag);
+      item.appendChild(light_tag);
+      var br = document.createElement("br");
+      item.appendChild(br);
+      document.getElementsByClassName("main")[0].appendChild(item);
+    }
+  });
+
+  ref.once("value", function(snapshot) {
+    console.log(snapshot.val());
+    var initButtonState = document.createTextNode(snapshot.val().switch);
+    // Throws a type error.
+    document.getElementById("switch").appendChild(initButtonState);
+  });
+  
+  // ref doesn't actually contain the data
+  document.getElementById("switch").onclick = function(){
+    var text = document.createTextNode("on");
+    ref.once("value", function(snapshot) {
+        while (document.getElementById('switch').firstChild) {
+          document.getElementById('switch').removeChild(document.getElementById('switch').firstChild);
+        }
+        var status = snapshot.val().switch;
+        if (status == "on") {
+          firebase.database().ref().child("switch").set("off");
+          text = document.createTextNode("off");
+        } else {
+          firebase.database().ref().child("switch").set("on");
+          text = document.createTextNode("on");
+        }
+        document.getElementById("switch").appendChild(text);
+    });
+    /*
+    console.log(ref);
+    if (ref.switch == "on") {
+      firebase.database().uploadString(ref, "off", "switch/");
+      //set(ref(firebase.database(), 'switch/'), {
+        //status: "off",
+      //});
+      text = document.createTextNode("off");
+    } else {
+      set(ref(firebase.database(), 'switch/'), {
+        status: "on",
+      });
+      text = document.createTextNode("on");
+    }
+    document.getElementById("switch").appendChild(text);*/
+  };
+</script>
+<style>
+* {
+  box-sizing: border-box;
+}
+
+/* Style the body */
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+}
+
+/* Header/logo Title */
+.header {
+  padding: 80px;
+  text-align: center;
+  background: #1abc9c;
+  color: white;
+}
+
+/* Increase the font size of the heading */
+.header h1 {
+  font-size: 40px;
+}
+
+/* Style the top navigation bar */
+.navbar {
+  overflow: hidden;
+  background-color: #333;
+}
+
+/* Style the navigation bar links */
+.navbar a {
+  float: left;
+  display: block;
+  color: white;
+  text-align: center;
+  padding: 14px 20px;
+  text-decoration: none;
+}
+
+.data {
+  display: block;
+}
+
+/* Right-aligned link */
+.navbar a.right {
+  float: right;
+}
+
+/* Change color on hover */
+.navbar a:hover {
+  background-color: #ddd;
+  color: black;
+}
+
+/* Column container */
+.row {  
+  display: -ms-flexbox; /* IE10 */
+  display: flex;
+  -ms-flex-wrap: wrap; /* IE10 */
+  flex-wrap: wrap;
+}
+
+/* Create two unequal columns that sits next to each other */
+/* Sidebar/left column */
+.side {
+  -ms-flex: 30%; /* IE10 */
+  flex: 30%;
+  background-color: #f1f1f1;
+  padding: 20px;
+}
+
+/* Main column */
+.main {   
+  -ms-flex: 45%; /* IE10 */
+  flex: 45%;
+  background-color: white;
+  padding: 20px;
+}
+
+.switch {   
+  -ms-flex: 25%; /* IE10 */
+  flex: 25%;
+  background-color: white;
+  padding: 20px;
+}
+
+/* Fake image, just for this example */
+img {
+  background-color: #aaa;
+  width: 100%;
+  padding: 20px;
+}
+
+/* Footer */
+.footer {
+  padding: 20px;
+  text-align: center;
+  background: #ddd;
+}
+
+/* Responsive layout - when the screen is less than 700px wide, make the two columns stack on top of each other instead of next to each other */
+@media screen and (max-width: 700px) {
+  .row {   
+    flex-direction: column;
+  }
+}
+
+/* Responsive layout - when the screen is less than 400px wide, make the navigation links stack on top of each other instead of next to each other */
+@media screen and (max-width: 400px) {
+  .navbar a {
+    float: none;
+    width: 100%;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Environment Protection Group 2</h1>
+  <p>Your personalized smart greenhouse.</p>
+</div>
+
+<div class="navbar">
+  <a href="#" class="right">Link</a>
+</div>
+
+<div class="row">
+  <div class="side">
+    <h2>About your System</h2>
+    <h5>Designed with Purpose</h5>
+    <img src="two.png" alt="Italian Trulli">
+    <h3>System Details</h3>
+   <p>The goal of this project is to make a system that will protect small plants from and monitor various environmental factors. The environmental factors that need to be considered are temperature, water, sunlight, frost, and small animals. The system will be designed to be easy and effective to be used with organic farming techniques. The proposed design solution is to build a plantar box, using wood and chicken wire, that protects plants against the elements. The box will have a shade to protect against sunlight, fans to help with heating, cooling and frost, and a heat lamp to warm the plants in cold temperatures. The box is powered using solar power, so it can be used anywhere, and it will be controlled by an Arduino Uno WiFi to update a website and notify the user of the soil moisture, temperature, and sunlight. 
+</p>
+    <img src="one.png" alt="Italian Trulli">
+    <img src="three.png" alt="Italian Trulli"><br>
+    <img src="four.png" alt="Italian Trulli">
+  </div>
+  <div class="switch">
+    <button id="switch"></button>
+    <h2>System Logs</h2>
+  </div>
+  <div class="main">
+    <h2>System Logs</h2>
+  </div>
+</div>
+
+<div class="footer">
+  <h2>Footer</h2>
+</div>
+
+</body>
+</html>
+
