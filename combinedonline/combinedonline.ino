@@ -7,30 +7,33 @@
 //Provide the RTDB payload printing info and other helper functions.
 #include "addons/RTDBHelper.h"
 
-// Insert your network credentials
-#define WIFI_SSID "LiviaiPhone"
-#define WIFI_PASSWORD "liviaseibert"
-
-// Insert Firebase project API Key
-#define API_KEY "AIzaSyComL1C7ysYuAE5UzTZwpOL5z8PcXU8WJM"
-
-// Insert RTDB URLefine the RTDB URL */
-#define DATABASE_URL "ece449-b1145-default-rtdb.firebaseio.com"
-
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <ESP32Time.h>
+
+#include <ESP32Servo.h>
+ 
+Servo myservo;  // create servo object to control a servo
+// 16 servo objects can be created on the ESP32
+ 
+int pos = 0;    // variable to store the servo position
+// Recommended PWM GPIO pins on the ESP32 include 2,4,12-19,21-23,25-27,32-33 
+int servoPin = 32;
 
 // Data wire is plugged into pin 2 on the Arduino
 #define ONE_WIRE_BUS 21
 
 #define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds */
-#define TIME_TO_SLEEP  3600        /* Time ESP32 will go to sleep (in seconds) */
+// change to 3600
+#define TIME_TO_SLEEP  10        /* Time ESP32 will go to sleep (in seconds) */
 
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
 
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature sensors(&oneWire);
+
+ESP32Time rtc;
 
 //Define Firebase Data object
 FirebaseData fbdo;
@@ -50,6 +53,7 @@ bool signupOK = false;
 
 void setup(){
   Serial.begin(9600);
+  pinMode(39, INPUT);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
   while (WiFi.status() != WL_CONNECTED){
@@ -82,6 +86,15 @@ void setup(){
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
 
+  if (Firebase.RTDB.getString(&fbdo, "switch")) {
+    Serial.println(fbdo.to<String>());
+    while (fbdo.to<String>() == "off") {
+      //Serial.println(fbdo.to<String>());
+      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+      esp_deep_sleep_start();
+    }
+  }
+
   // Set device to initially on.
   
   //FirebaseJson json;
@@ -97,42 +110,70 @@ void setup(){
       Serial.println("REASON: " + fbdo.errorReason());
     }
   }
+
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  myservo.setPeriodHertz(50);    // standard 50 hz servo
+  myservo.attach(servoPin, 500, 2400);
   
-  pinMode(36, INPUT);
-  pinMode(34, INPUT);
+  //pinMode(4, INPUT);
+  pinMode(A3, INPUT);
+  //pinMode(21, INPUT);
   sensors.begin();
+  //pinMode(4, INPUT);
 }
 
 void loop(){
   // If website powers device off, put it to sleep.
-  //Serial.println(Firebase.RTDB.getString(&fbdo, "switch"));
+  delay(1000);
   if (Firebase.RTDB.getString(&fbdo, "switch")) {
     Serial.println(fbdo.to<String>());
-    if (fbdo.to<String>() == "off") {
+    while (fbdo.to<String>() == "off") {
       //Serial.println(fbdo.to<String>());
+      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
       esp_deep_sleep_start();
     }
   }
+
   // Collect sensor data for 5 minutes.
+  
   Serial.println("collecting data");
-  while (millis() - sensorDataMillis < (300 * uS_TO_S_FACTOR * .001)) {
-    val = analogRead(36) / 4095;
-    sensors.requestTemperatures();
-    temp = (sensors.getTempCByIndex(0) * (9/5)) + 32;
-    light = analogRead(34);
-  }
+  Serial.println((float(analogRead(39)) / 4095.0) * 100.0);
+  delay(1000);
+  
+  //while (millis() - sensorDataMillis < (100/*300*/ * uS_TO_S_FACTOR * .001)) {
+  val = (float(analogRead(39)) / 4095.0) * 100.0;
+    //delay(1000);
+  delay(100);
+  sensors.requestTemperatures();
+  temp = (sensors.getTempCByIndex(0) * 1.8) + 32;
+  delay(100);
+  light = (float(analogRead(A3)) / 4095.0) * 100.0;
+  delay(100);
+ //}
   sensorDataMillis = millis();
+  delay(1000);
+  if (Firebase.RTDB.getString(&fbdo, "switch")) {
+    Serial.println(fbdo.to<String>());
+    while (fbdo.to<String>() == "off") {
+      //Serial.println(fbdo.to<String>());
+      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+      esp_deep_sleep_start();
+    }
+  }
 
   FirebaseJson json;
-  json.set("date", String(millis()));
+  json.set("date", rtc.getDateTime());
+  //Serial.println(val);
   json.set("moisture", String(val));
   json.set("temp", String(temp));
   json.set("light", String(light));
   delay(1000);
   if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)){
     sendDataPrevMillis = millis();
-    // Write an Int number on the database path test/int
-    
+    delay(1000);
     if (Firebase.RTDB.pushJSON(&fbdo, "data/", &json)){
       Serial.println("PASSED");
       Serial.println("PATH: " + fbdo.dataPath());
@@ -140,6 +181,25 @@ void loop(){
     else {
       Serial.println("FAILED");
       Serial.println("REASON: " + fbdo.errorReason());
+    }
+  }
+
+  if (Firebase.RTDB.getString(&fbdo, "switch")) {
+    Serial.println(fbdo.to<String>());
+    while (fbdo.to<String>() == "off") {
+      //Serial.println(fbdo.to<String>());
+      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+      esp_deep_sleep_start();
+    }
+  }
+
+  if (Firebase.RTDB.getString(&fbdo, "sunlim")) {
+    Serial.println((fbdo.to<String>()).toInt());
+    if ((fbdo.to<String>()).toInt() < light) {
+      for (pos = 0; pos < 360; pos += 1) {
+        myservo.write(pos);
+        delay(15);
+      }
     }
   }
 

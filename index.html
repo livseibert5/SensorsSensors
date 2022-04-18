@@ -15,7 +15,6 @@
 
   // Your web app's Firebase configuration
   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  /**PUT CREDENTIALS HERE**/
 
   // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
@@ -30,11 +29,11 @@
       var date_tag = document.createElement("p");
       date_tag.appendChild(document.createTextNode("Date: " + json[d].date));
       var moisture_tag = document.createElement("p");
-      moisture_tag.appendChild(document.createTextNode("Moisture: " + json[d].moisture));
+      moisture_tag.appendChild(document.createTextNode("Moisture: " + json[d].moisture + "%"));
       var temp_tag = document.createElement("p");
-      temp_tag.appendChild(document.createTextNode("Temperature: " + json[d].temp));
+      temp_tag.appendChild(document.createTextNode("Temperature: " + json[d].temp + " degrees Fahrenheit"));
       var light_tag = document.createElement("p");
-      light_tag.appendChild(document.createTextNode("Sunlight: " + json[d].light));
+      light_tag.appendChild(document.createTextNode("Sunlight: " + json[d].light + "%"));
       date_tag.classList.add("data");
       moisture_tag.classList.add("data");
       temp_tag.classList.add("data");
@@ -73,21 +72,17 @@
         }
         document.getElementById("switch").appendChild(text);
     });
-    /*
-    console.log(ref);
-    if (ref.switch == "on") {
-      firebase.database().uploadString(ref, "off", "switch/");
-      //set(ref(firebase.database(), 'switch/'), {
-        //status: "off",
-      //});
-      text = document.createTextNode("off");
-    } else {
-      set(ref(firebase.database(), 'switch/'), {
-        status: "on",
-      });
-      text = document.createTextNode("on");
-    }
-    document.getElementById("switch").appendChild(text);*/
+  };
+
+  ref.once("value", function(snapshot) {
+    document.getElementById("sunlimtext").innerHTML = "Current sun limit: " + snapshot.val().sunlim;
+  });
+
+  document.getElementById("sunlimitenter").onclick = function() {
+    ref.once("value", function(snapshot) {
+        firebase.database().ref().child("sunlim").set(document.getElementById("sunlimitnum").value);
+    });
+    document.getElementById("sunlimtext").innerHTML = "Current sun limit: " + document.getElementById("sunlimitnum").value;
   };
 </script>
 <style>
@@ -232,6 +227,9 @@ img {
   </div>
   <div class="switch">
     <button id="switch"></button>
+    <input id="sunlimitnum" type="number" min="0" max="100">
+    <button id="sunlimitenter">Submit sunshine limit</button>
+    <p id="sunlimtext"></p>
     <h2>System Logs</h2>
   </div>
   <div class="main">
