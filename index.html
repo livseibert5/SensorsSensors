@@ -51,11 +51,9 @@
   ref.once("value", function(snapshot) {
     console.log(snapshot.val());
     var initButtonState = document.createTextNode(snapshot.val().switch);
-    // Throws a type error.
     document.getElementById("switch").appendChild(initButtonState);
   });
   
-  // ref doesn't actually contain the data
   document.getElementById("switch").onclick = function(){
     var text = document.createTextNode("on");
     ref.once("value", function(snapshot) {
@@ -87,10 +85,28 @@
 
   document.getElementById("advanced").onclick = function() {
     ref.once("value", function(snapshot) {
-      firebase.database().ref().child("time").set(1);
-      firebase.database().ref().child("shade").set("open");
+      var status = snapshot.val().time;
+      if (status >= 1) {
+        firebase.database().ref().child("time").set(0);
+      } else {
+        firebase.database().ref().child("time").set(1);
+        firebase.database().ref().child("shade").set("open");
+      }
     });
-  }
+  };
+
+  document.getElementById("basic").onclick = function() {
+    ref.once("value", function(snapshot) {
+      var status = snapshot.val().basic;
+      if (status == "on") {
+        firebase.database().ref().child("basic").set("off");
+        document.getElementById("basic").innerHTML = "Basic Mode Off";
+      } else {
+        firebase.database().ref().child("basic").set("on");
+        document.getElementById("basic").innerHTML = "Basic Mode On";
+      }
+    });
+  };
 </script>
 <style>
 * {
