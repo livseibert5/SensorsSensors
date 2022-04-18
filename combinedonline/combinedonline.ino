@@ -46,14 +46,17 @@ String jsonStr;
 unsigned long sendDataPrevMillis = 0;
 unsigned long sensorDataMillis = 0;
 int count = 0;
-float val = 0;
+float moisture = 0;
 float temp = 0;
 float light = 0;
 bool signupOK = false;
+bool advancedMode = false;
+bool basicMode = false;
 
 void setup(){
   Serial.begin(9600);
-  pinMode(39, INPUT);
+
+  // WIFI SETUP
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to Wi-Fi");
   while (WiFi.status() != WL_CONNECTED){
@@ -65,13 +68,11 @@ void setup(){
   Serial.println(WiFi.localIP());
   Serial.println();
 
-  /* Assign the api key (required) */
+  // FIREBASE CREDENTIALS
   config.api_key = API_KEY;
-
-  /* Assign the RTDB URL (required) */
   config.database_url = DATABASE_URL;
 
-  /* Sign up */
+  // FIREBASE LOGIN
   if (Firebase.signUp(&config, &auth, "", "")){
     Serial.println("ok");
     signupOK = true;
@@ -80,25 +81,21 @@ void setup(){
     Serial.printf("%s\n", config.signer.signupError.message.c_str());
   }
 
-  /* Assign the callback function for the long running token generation task */
-  config.token_status_callback = tokenStatusCallback; //see addons/TokenHelper.h
-  
+  // FIREBASE CONNECTION
+  config.token_status_callback = tokenStatusCallback;
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
 
+  // PUT SYSTEM TO SLEEP AGAIN IF OFF
   if (Firebase.RTDB.getString(&fbdo, "switch")) {
     Serial.println(fbdo.to<String>());
-    while (fbdo.to<String>() == "off") {
-      //Serial.println(fbdo.to<String>());
+    if (fbdo.to<String>() == "off") {
       esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
       esp_deep_sleep_start();
     }
   }
 
-  // Set device to initially on.
-  
-  //FirebaseJson json;
-  //json.set("switch", "on");
+  // SET DEVICE TO ON BEFORE RUNNING
   if (Firebase.ready() && signupOK){
     if (Firebase.RTDB.setString(&fbdo, "switch/", "on")){
       Serial.println("PASSED");
@@ -111,50 +108,70 @@ void setup(){
     }
   }
 
+  // INCREMENT ADVANCED MODE TIME
+  if (advancedMode && Firebase.RTDB.getInt(&fbdo, "time")) {
+    int curr = fbdo.to<int>();
+    // IF 6 DAYS HAVE PASSED PLANTS ARE HARDENED
+    if (curr > 144) {
+      Firebase.RTDB.setInt(&fbdo, "time/", 0);
+      advancedMode = false;
+    } else {
+      Firebase.RTDB.setInt(&fbdo, "time/", curr + 1);
+    }
+  }
+
+  // START ADVANCED MODE
+  if (Firebase.RTDB.getInt(&fbdo, "time")) {
+    if (fbdo.to<int>() >= 1) {
+      advancedMode = true;
+    }
+  }
+
+  // SET UP SERVO
   ESP32PWM::allocateTimer(0);
   ESP32PWM::allocateTimer(1);
   ESP32PWM::allocateTimer(2);
   ESP32PWM::allocateTimer(3);
-  myservo.setPeriodHertz(50);    // standard 50 hz servo
+  myservo.setPeriodHertz(50);
   myservo.attach(servoPin, 500, 2400);
-  
-  //pinMode(4, INPUT);
+
+  // SET UP SENSOR PINS
   pinMode(A3, INPUT);
-  //pinMode(21, INPUT);
+  pinMode(39, INPUT);
   sensors.begin();
-  //pinMode(4, INPUT);
 }
 
 void loop(){
-  // If website powers device off, put it to sleep.
   delay(1000);
+  Serial.println(advancedMode);
+
+  // PUT SYSTEM TO SLEEP IF OFF
   if (Firebase.RTDB.getString(&fbdo, "switch")) {
     Serial.println(fbdo.to<String>());
-    while (fbdo.to<String>() == "off") {
-      //Serial.println(fbdo.to<String>());
+    if (fbdo.to<String>() == "off") {
       esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
       esp_deep_sleep_start();
     }
   }
 
   // Collect sensor data for 5 minutes.
-  
   Serial.println("collecting data");
-  Serial.println((float(analogRead(39)) / 4095.0) * 100.0);
   delay(1000);
   
-  //while (millis() - sensorDataMillis < (100/*300*/ * uS_TO_S_FACTOR * .001)) {
-  val = (float(analogRead(39)) / 4095.0) * 100.0;
+  while (millis() - sensorDataMillis < (100/*300*/ * uS_TO_S_FACTOR * .001)) {
+    moisture = (float(analogRead(39)) / 4095.0) * 100.0;
     //delay(1000);
-  delay(100);
-  sensors.requestTemperatures();
-  temp = (sensors.getTempCByIndex(0) * 1.8) + 32;
-  delay(100);
-  light = (float(analogRead(A3)) / 4095.0) * 100.0;
-  delay(100);
- //}
+    delay(100);
+    sensors.requestTemperatures();
+    temp = (sensors.getTempCByIndex(0) * 1.8) + 32;
+    delay(100);
+    light = (float(analogRead(A3)) / 4095.0) * 100.0;
+    delay(100);
+  }
   sensorDataMillis = millis();
   delay(1000);
+
+  // PUT SYSTEM TO SLEEP IF OFF
   if (Firebase.RTDB.getString(&fbdo, "switch")) {
     Serial.println(fbdo.to<String>());
     while (fbdo.to<String>() == "off") {
@@ -164,13 +181,78 @@ void loop(){
     }
   }
 
+  // ADVANCED MODE ATTEMPT 1
+  /*
+  if (advancedMode && Firebase.RTDB.getInt(&fbdo, "time")) {
+    int curr = fbdo.to<int>();
+    Serial.println("adv mode and time");
+    if (curr < 24 && light >= 25) {
+      Serial.println("day 1 and sunny");
+      Firebase.RTDB.getInt(&fbdo, "currSun");
+      int currSun = fbdo.to<int>();
+      Firebase.RTDB.setInt(&fbdo, "time/", currSun + 1);
+      if (currSun > 2) {
+        Serial.println("hit sun limit");
+        closeShade();
+      }
+    }
+  }*/
+
+
+  // ADVANCED MODE
+  if (advancedMode && Firebase.RTDB.getInt(&fbdo, "time")) {
+    int currTime = fbdo.to<int>();
+    Firebase.RTDB.getString(&fbdo, "shade");
+    String shadePos = fbdo.to<String>();
+    bool shadeOpen = shadePos == "open";
+    if (!shadeOpen && currTime % 24 == 0) {
+      openShade();
+      Firebase.RTDB.setString(&fbdo, "shade", "open");
+    }
+    int suntoday = 0;
+    if (light > 65 && shadePos == "open") {
+      Firebase.RTDB.getInt(&fbdo, "suntoday");
+      suntoday = fbdo.to<int>();
+      Firebase.RTDB.setInt(&fbdo, "suntoday", suntoday + 1);
+    }
+    bool day1 = currTime < 24 && suntoday > 2 && shadeOpen;
+    bool day2 = currTime > 24 && currTime < 48 && suntoday > 3 && shadeOpen;
+    bool day3 = currTime > 48 && currTime < 72 && suntoday > 4 && shadeOpen;
+    bool day4 = currTime > 72 && currTime < 96 && suntoday > 5 && shadeOpen;
+    bool day5 = currTime > 96 && currTime < 120 && suntoday > 6 && shadeOpen;
+    bool day6 = currTime > 120 && currTime < 144 && suntoday > 7 && shadeOpen;
+    if (day1 || day2 || day3 || day4 || day5 || day6) {
+      closeShade();
+      Firebase.RTDB.setString(&fbdo, "shade", "closed");
+      Firebase.RTDB.setInt(&fbdo, "suntoday", 0);
+    }
+  }
+
+  // BASIC MODE
+  if (basicMode) {
+    Firebase.RTDB.getString(&fbdo, "sunlim");
+    int sunlim = (fbdo.to<String>()).toInt();
+    Firebase.RTDB.getString(&fbdo, "shade");
+    String shadePos = fbdo.to<String>();
+    bool shadeOpen = shadePos == "open";
+    if (light > sunlim && shadeOpen) {
+      closeShade();
+      Firebase.RTDB.setString(&fbdo, "shade", "closed");
+    }
+    if (light < sunlim && !shadeOpen) {
+      openShade();
+      Firebase.RTDB.setString(&fbdo, "shade", "open");
+    }
+  }
+
+  // TURN SENSOR DATA INTO JSON
   FirebaseJson json;
   json.set("date", rtc.getDateTime());
-  //Serial.println(val);
-  json.set("moisture", String(val));
+  json.set("moisture", String(moisture));
   json.set("temp", String(temp));
   json.set("light", String(light));
-  delay(1000);
+
+  // UPLOAD SENSOR DATA TO FIREBASE
   if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)){
     sendDataPrevMillis = millis();
     delay(1000);
@@ -184,6 +266,7 @@ void loop(){
     }
   }
 
+  // PUT SYSTEM TO SLEEP IF OFF
   if (Firebase.RTDB.getString(&fbdo, "switch")) {
     Serial.println(fbdo.to<String>());
     while (fbdo.to<String>() == "off") {
@@ -193,6 +276,8 @@ void loop(){
     }
   }
 
+  // TURN ON SERVO BASED ON SUNLIGHT
+  /*
   if (Firebase.RTDB.getString(&fbdo, "sunlim")) {
     Serial.println((fbdo.to<String>()).toInt());
     if ((fbdo.to<String>()).toInt() < light) {
@@ -201,10 +286,28 @@ void loop(){
         delay(15);
       }
     }
-  }
+  }*/
 
-  // Set sleep/wake cycle to an hour.
+  // SET SLEEP/WAKE CYCLE
   Serial.println("sleeping");
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   esp_deep_sleep_start();
+}
+
+void closeShade() {
+  myservo.detach();
+  delay(2000);
+  myservo.attach(32);
+  myservo.write(0);
+  delay(16000);
+  myservo.detach();
+}
+
+void openShade() {
+  myservo.detach();
+  delay(2000);
+  myservo.attach(32);
+  myservo.write(180);
+  delay(16000);
+  myservo.detach();
 }

@@ -84,6 +84,13 @@
     });
     document.getElementById("sunlimtext").innerHTML = "Current sun limit: " + document.getElementById("sunlimitnum").value;
   };
+
+  document.getElementById("advanced").onclick = function() {
+    ref.once("value", function(snapshot) {
+      firebase.database().ref().child("time").set(1);
+      firebase.database().ref().child("shade").set("open");
+    });
+  }
 </script>
 <style>
 * {
@@ -227,9 +234,14 @@ img {
   </div>
   <div class="switch">
     <button id="switch"></button>
+    <br>
     <input id="sunlimitnum" type="number" min="0" max="100">
     <button id="sunlimitenter">Submit sunshine limit</button>
     <p id="sunlimtext"></p>
+    <br>
+    <button id="basic">Start Basic Mode</button>
+    <button id="advanced">Start Advanced Mode</button>
+    <br>
     <h2>System Logs</h2>
   </div>
   <div class="main">
