@@ -108,6 +108,27 @@ void setup(){
     }
   }
 
+  // SET UP SERVO
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  myservo.setPeriodHertz(50);
+  myservo.attach(servoPin, 500, 2400);
+
+  // RESPOND TO SHADE ACTION FROM WEBSITE
+  if (Firebase.RTDB.getString(&fbdo, "rollaction")) {
+    String rollaction = fbdo.to<String>();
+    if (rollaction == "open") {
+      openShade();
+      Firebase.RTDB.setString(&fbdo, "shade", "open");
+    } else if (rollaction == "close") {
+      closeShade();
+      Firebase.RTDB.setString(&fbdo, "shade", "closed");
+    }
+    Firebase.RTDB.setString(&fbdo, "rollaction", "none");
+  }
+
   // INCREMENT ADVANCED MODE TIME
   if (advancedMode && Firebase.RTDB.getInt(&fbdo, "time")) {
     int curr = fbdo.to<int>();
@@ -127,13 +148,14 @@ void setup(){
     }
   }
 
-  // SET UP SERVO
-  ESP32PWM::allocateTimer(0);
-  ESP32PWM::allocateTimer(1);
-  ESP32PWM::allocateTimer(2);
-  ESP32PWM::allocateTimer(3);
-  myservo.setPeriodHertz(50);
-  myservo.attach(servoPin, 500, 2400);
+  // START BASIC MODE
+  if (Firebase.RTDB.getString(&fbdo, "basic")) {
+    if (fbdo.to<String>() == "on") {
+      basicMode = true;
+    } else {
+      basicMode = false;
+    }
+  }
 
   // SET UP SENSOR PINS
   pinMode(A3, INPUT);
@@ -295,6 +317,7 @@ void loop(){
 }
 
 void closeShade() {
+  Serial.println("closing");
   myservo.detach();
   delay(2000);
   myservo.attach(32);
@@ -304,6 +327,7 @@ void closeShade() {
 }
 
 void openShade() {
+  Serial.println("opening");
   myservo.detach();
   delay(2000);
   myservo.attach(32);

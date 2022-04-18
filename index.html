@@ -51,10 +51,29 @@
   ref.once("value", function(snapshot) {
     console.log(snapshot.val());
     var initButtonState = document.createTextNode(snapshot.val().switch);
+    var initRollState = snapshot.val().shade;
     document.getElementById("switch").appendChild(initButtonState);
+    if (initRollState == "open") {
+      document.getElementById("roll").innerHTML = "Roll Shade Closed";
+    } else {
+      document.getElementById("roll").innerHTML = "Roll Shade Open";
+    }
   });
+
+  document.getElementById("roll").onclick = function() {
+    ref.once("value", function(snapshot) {
+      var shade = snapshot.val().shade;
+      if (shade == "open") {
+        firebase.database().ref().child("rollaction").set("close");
+        document.getElementById("roll").innerHTML = "Roll Shade Closed";
+      } else {
+        firebase.database().ref().child("rollaction").set("open");
+        document.getElementById("roll").innerHTML = "Roll Shade Open";
+      }
+    });
+  }
   
-  document.getElementById("switch").onclick = function(){
+  document.getElementById("switch").onclick = function() {
     var text = document.createTextNode("on");
     ref.once("value", function(snapshot) {
         while (document.getElementById('switch').firstChild) {
@@ -257,6 +276,8 @@ img {
     <br>
     <button id="basic">Start Basic Mode</button>
     <button id="advanced">Start Advanced Mode</button>
+    <br>
+    <button id="roll"></button>
     <br>
     <h2>System Logs</h2>
   </div>
