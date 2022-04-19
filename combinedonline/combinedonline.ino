@@ -7,6 +7,16 @@
 //Provide the RTDB payload printing info and other helper functions.
 #include "addons/RTDBHelper.h"
 
+// Insert your network credentials
+#define WIFI_SSID // ADD HERE
+#define WIFI_PASSWORD // ADD HERE
+
+// Insert Firebase project API Key
+#define API_KEY // ADD HERE
+
+// Insert RTDB URLefine the RTDB URL */
+#define DATABASE_URL // ADD HERE
+
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <ESP32Time.h>
@@ -25,7 +35,7 @@ int servoPin = 32;
 
 #define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds */
 // change to 3600
-#define TIME_TO_SLEEP  10        /* Time ESP32 will go to sleep (in seconds) */
+#define TIME_TO_SLEEP  3600        /* Time ESP32 will go to sleep (in seconds) */
 
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
@@ -159,7 +169,7 @@ void setup(){
 
   // SET UP SENSOR PINS
   pinMode(A3, INPUT);
-  pinMode(39, INPUT);
+  pinMode(34, INPUT);
   sensors.begin();
 }
 
@@ -180,8 +190,8 @@ void loop(){
   Serial.println("collecting data");
   delay(1000);
   
-  while (millis() - sensorDataMillis < (100/*300*/ * uS_TO_S_FACTOR * .001)) {
-    moisture = (float(analogRead(39)) / 4095.0) * 100.0;
+  while (millis() - sensorDataMillis < (300 * uS_TO_S_FACTOR * .001)) {
+    moisture = (float(analogRead(34)) / 4095.0) * 100.0;
     //delay(1000);
     delay(100);
     sensors.requestTemperatures();
@@ -202,24 +212,6 @@ void loop(){
       esp_deep_sleep_start();
     }
   }
-
-  // ADVANCED MODE ATTEMPT 1
-  /*
-  if (advancedMode && Firebase.RTDB.getInt(&fbdo, "time")) {
-    int curr = fbdo.to<int>();
-    Serial.println("adv mode and time");
-    if (curr < 24 && light >= 25) {
-      Serial.println("day 1 and sunny");
-      Firebase.RTDB.getInt(&fbdo, "currSun");
-      int currSun = fbdo.to<int>();
-      Firebase.RTDB.setInt(&fbdo, "time/", currSun + 1);
-      if (currSun > 2) {
-        Serial.println("hit sun limit");
-        closeShade();
-      }
-    }
-  }*/
-
 
   // ADVANCED MODE
   if (advancedMode && Firebase.RTDB.getInt(&fbdo, "time")) {
@@ -298,18 +290,6 @@ void loop(){
     }
   }
 
-  // TURN ON SERVO BASED ON SUNLIGHT
-  /*
-  if (Firebase.RTDB.getString(&fbdo, "sunlim")) {
-    Serial.println((fbdo.to<String>()).toInt());
-    if ((fbdo.to<String>()).toInt() < light) {
-      for (pos = 0; pos < 360; pos += 1) {
-        myservo.write(pos);
-        delay(15);
-      }
-    }
-  }*/
-
   // SET SLEEP/WAKE CYCLE
   Serial.println("sleeping");
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
@@ -322,7 +302,7 @@ void closeShade() {
   delay(2000);
   myservo.attach(32);
   myservo.write(0);
-  delay(16000);
+  delay(21500);
   myservo.detach();
 }
 
@@ -332,6 +312,6 @@ void openShade() {
   delay(2000);
   myservo.attach(32);
   myservo.write(180);
-  delay(16000);
+  delay(22500);
   myservo.detach();
 }
